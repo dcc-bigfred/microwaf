@@ -19,9 +19,11 @@ impl ManualPolicyStore for MemoryStore {
         let m = self.policies.lock().expect("lock");
         let mut out = Vec::new();
         for (k, v) in m.iter() {
-            let client: ClientId = k
-                .parse()
-                .map_err(|e: mw_core::client::ClientRefParseError| StoreError::Backend(e.to_string()))?;
+            let client: ClientId =
+                k.parse()
+                    .map_err(|e: mw_core::client::ClientRefParseError| {
+                        StoreError::Backend(e.to_string())
+                    })?;
             out.push((client, v.clone()));
         }
         Ok(out)
@@ -36,7 +38,10 @@ impl ManualPolicyStore for MemoryStore {
     }
 
     fn remove(&self, client: &ClientId) -> Result<(), StoreError> {
-        self.policies.lock().expect("lock").remove(&client.storage_key());
+        self.policies
+            .lock()
+            .expect("lock")
+            .remove(&client.storage_key());
         Ok(())
     }
 }
@@ -46,9 +51,11 @@ impl ClientStatsStore for MemoryStore {
         let m = self.stats.lock().expect("lock");
         let mut out = Vec::new();
         for (k, v) in m.iter() {
-            let client: ClientId = k
-                .parse()
-                .map_err(|e: mw_core::client::ClientRefParseError| StoreError::Backend(e.to_string()))?;
+            let client: ClientId =
+                k.parse()
+                    .map_err(|e: mw_core::client::ClientRefParseError| {
+                        StoreError::Backend(e.to_string())
+                    })?;
             out.push((client, v.clone()));
         }
         Ok(out)

@@ -8,9 +8,7 @@ use anyhow::{Context, Result};
 use mw_client::Client;
 use mw_proto::{ActionWire, ClientEntry, TopColumn, TopParams, TopResult, ViolationWire};
 use nix::poll::{poll, PollFd, PollFlags, PollTimeout};
-use nix::sys::termios::{
-    tcgetattr, tcsetattr, InputFlags, LocalFlags, SetArg, Termios,
-};
+use nix::sys::termios::{tcgetattr, tcsetattr, InputFlags, LocalFlags, SetArg, Termios};
 use nix::unistd::isatty;
 
 /// Run `top`: live table on a TTY, otherwise one snapshot.
@@ -308,7 +306,8 @@ impl RawMode {
         let stdin = io::stdin();
         let orig = tcgetattr(stdin.as_fd()).context("tcgetattr")?;
         let mut raw = orig.clone();
-        raw.local_flags.remove(LocalFlags::ECHO | LocalFlags::ICANON);
+        raw.local_flags
+            .remove(LocalFlags::ECHO | LocalFlags::ICANON);
         raw.input_flags
             .remove(InputFlags::IXON | InputFlags::ICRNL | InputFlags::INLCR);
         tcsetattr(stdin.as_fd(), SetArg::TCSANOW, &raw).context("tcsetattr")?;

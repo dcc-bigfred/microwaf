@@ -187,8 +187,7 @@ pub fn ensure_config_files(dir: &Path) -> Result<()> {
     }
     // Seed a live baseline rules file only when rules.d has no YAML yet
     // (so an intentionally empty rules.d stays empty after the operator deletes files).
-    if !rules_dir_has_yaml(&rules_dir)
-        && seed_if_missing(&rules_example_live, DEFAULT_RULES_YAML)?
+    if !rules_dir_has_yaml(&rules_dir) && seed_if_missing(&rules_example_live, DEFAULT_RULES_YAML)?
     {
         info!(
             path = %rules_example_live.display(),

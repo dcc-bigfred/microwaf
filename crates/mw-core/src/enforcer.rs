@@ -26,7 +26,9 @@ impl std::str::FromStr for Mode {
         match s.to_ascii_lowercase().as_str() {
             "enforce" => Ok(Self::Enforce),
             "permissive" => Ok(Self::Permissive),
-            other => Err(format!("invalid mode `{other}` (expected enforce|permissive)")),
+            other => Err(format!(
+                "invalid mode `{other}` (expected enforce|permissive)"
+            )),
         }
     }
 }

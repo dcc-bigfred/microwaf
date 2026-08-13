@@ -164,10 +164,7 @@ impl EffectiveAction {
 /// Block beats throttle. Highest drop_rate wins among throttles.
 #[must_use]
 pub fn merge_policy(policy: &ClientPolicy, now: Instant) -> EffectiveAction {
-    let manual = policy
-        .manual
-        .as_ref()
-        .filter(|m| !m.is_expired(now));
+    let manual = policy.manual.as_ref().filter(|m| !m.is_expired(now));
     let auto = policy.auto.as_ref().filter(|a| !a.is_expired(now));
 
     if let Some(m) = manual {

@@ -39,10 +39,7 @@ fn main() {
     fs::copy(&src, &dest).unwrap_or_else(|e| {
         panic!("copy {} → {}: {e}", src.display(), dest.display());
     });
-    println!(
-        "cargo:rustc-env=MICROWAF_BPF_SOURCE={}",
-        src.display()
-    );
+    println!("cargo:rustc-env=MICROWAF_BPF_SOURCE={}", src.display());
 }
 
 fn resolve_bpf_object(workspace_root: &Path) -> Result<PathBuf, String> {
@@ -87,14 +84,10 @@ fn build_bpf_object(workspace_root: &Path) -> Result<PathBuf, String> {
         .env("PATH", &path_env)
         .env("CARGO_TARGET_DIR", &target_dir)
         .status()
-        .map_err(|e| {
-            format!("failed to spawn cargo +nightly (is nightly installed?): {e}")
-        })?;
+        .map_err(|e| format!("failed to spawn cargo +nightly (is nightly installed?): {e}"))?;
 
     if !status.success() {
-        return Err(
-            "cargo +nightly build of mw-ebpf failed (need: make ebpf-setup)".into(),
-        );
+        return Err("cargo +nightly build of mw-ebpf failed (need: make ebpf-setup)".into());
     }
     if !out.is_file() {
         return Err(format!(

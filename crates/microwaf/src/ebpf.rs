@@ -74,14 +74,13 @@ pub fn load_and_attach(interface: &str) -> Result<BpfHandle> {
 
 /// BPF object bytes baked into the binary by `build.rs`.
 #[cfg(feature = "ebpf")]
-static EMBEDDED_BPF: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/libmw_ebpf.so"));
+static EMBEDDED_BPF: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/libmw_ebpf.so"));
 
 #[cfg(feature = "ebpf")]
 fn bpf_object_bytes() -> Result<Vec<u8>> {
     if let Ok(path) = std::env::var("MICROWAF_BPF_OBJECT") {
-        let bytes = std::fs::read(&path)
-            .with_context(|| format!("read MICROWAF_BPF_OBJECT={path}"))?;
+        let bytes =
+            std::fs::read(&path).with_context(|| format!("read MICROWAF_BPF_OBJECT={path}"))?;
         tracing::info!(%path, len = bytes.len(), "loading BPF object from file");
         return Ok(bytes);
     }
@@ -160,7 +159,10 @@ impl Enforcer for BpfEnforcer {
             EffectiveAction::Block => (true, 100u8),
             EffectiveAction::Throttle { drop_rate } => (false, drop_rate),
         };
-        self.handle.policies.lock().insert(key, (blocked, drop_rate));
+        self.handle
+            .policies
+            .lock()
+            .insert(key, (blocked, drop_rate));
     }
 
     fn clear(&self, client: ClientId) {

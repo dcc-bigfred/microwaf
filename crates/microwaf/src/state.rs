@@ -11,7 +11,7 @@ use mw_core::client::ClientId;
 use mw_core::config::{DaemonConfig, SetsConfig};
 use mw_core::counters::{CounterKey, CounterStore};
 use mw_core::enforcer::{Enforcer, Mode};
-use mw_core::policy::{EffectiveAction, ClientPolicy};
+use mw_core::policy::{ClientPolicy, EffectiveAction};
 use mw_core::rule::RuleSet;
 use mw_core::window::RuleWindows;
 

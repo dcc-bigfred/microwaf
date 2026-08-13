@@ -61,9 +61,7 @@ impl SlidingWindow {
 
     /// Advance empty buckets for elapsed whole seconds.
     pub fn advance(&mut self, now: Instant) {
-        let elapsed = now
-            .saturating_duration_since(self.last_advance)
-            .as_secs() as usize;
+        let elapsed = now.saturating_duration_since(self.last_advance).as_secs() as usize;
         if elapsed == 0 {
             return;
         }
@@ -113,9 +111,7 @@ impl RuleWindows {
     /// Sum for a rule (0 if absent).
     #[must_use]
     pub fn sum(&self, rule_id: &str, metric: Metric, secs: usize) -> u64 {
-        self.by_rule
-            .get(rule_id)
-            .map_or(0, |w| w.sum(metric, secs))
+        self.by_rule.get(rule_id).map_or(0, |w| w.sum(metric, secs))
     }
 
     /// Advance all windows.

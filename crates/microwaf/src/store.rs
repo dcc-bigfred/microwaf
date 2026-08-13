@@ -20,10 +20,13 @@ pub fn hydrate(state: &DaemonState, store: &impl ManualPolicyStore) -> Result<()
     let now = std::time::Instant::now();
     let mut map = state.policies.lock();
     for (client, stored) in policies {
-        map.insert(client, mw_core::policy::ClientPolicy {
-            manual: Some(stored.to_runtime(now)),
-            auto: None,
-        });
+        map.insert(
+            client,
+            mw_core::policy::ClientPolicy {
+                manual: Some(stored.to_runtime(now)),
+                auto: None,
+            },
+        );
     }
     info!(count = map.len(), "hydrated manual policies from store");
     Ok(())

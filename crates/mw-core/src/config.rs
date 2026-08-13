@@ -3,9 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cel_match::{compile_match, CompiledMatch};
+use crate::enforcer::Mode;
 use crate::error::ConfigError;
 use crate::rule::{Action, Metric, Protocol, Rule, RuleSet, Window, MAX_RULES};
-use crate::enforcer::Mode;
 
 /// `daemon.yaml` contents.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,10 +120,9 @@ impl ConfigRule {
         let metric: Metric = self.metric.parse()?;
         let window: Window = self.window.parse()?;
         let compiled: Option<CompiledMatch> = match &self.r#match {
-            Some(src) if !src.is_empty() => Some(
-                compile_match(src)
-                    .map_err(|e| ConfigError::CelCompile(self.id.clone(), e))?,
-            ),
+            Some(src) if !src.is_empty() => {
+                Some(compile_match(src).map_err(|e| ConfigError::CelCompile(self.id.clone(), e))?)
+            }
             _ => None,
         };
         let rule = Rule {

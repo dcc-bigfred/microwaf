@@ -34,8 +34,7 @@ use crate::version;
 /// - Path exists and `connect` fails → treat as stale file, remove, bind.
 pub fn bind_listener(socket: &Path) -> Result<UnixListener> {
     if let Some(parent) = socket.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("mkdir {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("mkdir {}", parent.display()))?;
     }
     claim_socket_path(socket)?;
     let listener =
@@ -44,8 +43,7 @@ pub fn bind_listener(socket: &Path) -> Result<UnixListener> {
         .with_context(|| format!("stat {}", socket.display()))?
         .permissions();
     perms.set_mode(0o660);
-    fs::set_permissions(socket, perms)
-        .with_context(|| format!("chmod {}", socket.display()))?;
+    fs::set_permissions(socket, perms).with_context(|| format!("chmod {}", socket.display()))?;
     info!(path = %socket.display(), "IPC listening");
     Ok(listener)
 }
@@ -301,15 +299,16 @@ fn list_clients(state: &DaemonState) -> ClientsResult {
         clients.push(ClientEntry {
             client: client_to_ref(client),
             action: Some(effective_to_wire(eff)),
-            would_be_action: would.get(&client).map(|a| effective_to_wire(*a)).or_else(
-                || {
+            would_be_action: would
+                .get(&client)
+                .map(|a| effective_to_wire(*a))
+                .or_else(|| {
                     if state.mode == Mode::Permissive {
                         Some(effective_to_wire(eff))
                     } else {
                         None
                     }
-                },
-            ),
+                }),
             violations: vec![],
             hot: false,
             stats: stats.get(&client).map(|s| mw_proto::ClientStatsWire {
@@ -428,15 +427,16 @@ fn top(state: &DaemonState, params: &TopParams) -> TopResult {
             ClientEntry {
                 client: client_to_ref(client),
                 action: Some(effective_to_wire(eff)),
-                would_be_action: would.get(&client).map(|a| effective_to_wire(*a)).or_else(
-                    || {
+                would_be_action: would
+                    .get(&client)
+                    .map(|a| effective_to_wire(*a))
+                    .or_else(|| {
                         if state.mode == Mode::Permissive {
                             Some(effective_to_wire(eff))
                         } else {
                             None
                         }
-                    },
-                ),
+                    }),
                 violations: observations,
                 hot,
                 stats: stats.get(&client).map(|s| mw_proto::ClientStatsWire {
@@ -493,9 +493,7 @@ fn score_client(
 fn throttle(state: &DaemonState, store: &StoreBackend, p: &ThrottleParams) -> Result<(), String> {
     let client = parse_ref(&p.client)?;
     let now = Instant::now();
-    let until = p
-        .duration_secs
-        .map(|s| now + Duration::from_secs(s));
+    let until = p.duration_secs.map(|s| now + Duration::from_secs(s));
     let rate = p.rate.unwrap_or(50);
     {
         let mut policies = state.policies.lock();
@@ -509,7 +507,8 @@ fn throttle(state: &DaemonState, store: &StoreBackend, p: &ThrottleParams) -> Re
         manual.until = until;
         entry.manual = Some(manual.clone());
         let stored = StoredManualPolicy::from_runtime(&manual, now);
-        store::persist_manual(store.as_manual(), &client, Some(&stored)).map_err(|e| e.to_string())?;
+        store::persist_manual(store.as_manual(), &client, Some(&stored))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -517,9 +516,7 @@ fn throttle(state: &DaemonState, store: &StoreBackend, p: &ThrottleParams) -> Re
 fn block(state: &DaemonState, store: &StoreBackend, p: &BlockParams) -> Result<(), String> {
     let client = parse_ref(&p.client)?;
     let now = Instant::now();
-    let until = p
-        .duration_secs
-        .map(|s| now + Duration::from_secs(s));
+    let until = p.duration_secs.map(|s| now + Duration::from_secs(s));
     {
         let mut policies = state.policies.lock();
         let entry = policies.entry(client).or_default();
@@ -532,7 +529,8 @@ fn block(state: &DaemonState, store: &StoreBackend, p: &BlockParams) -> Result<(
         manual.until = until;
         entry.manual = Some(manual.clone());
         let stored = StoredManualPolicy::from_runtime(&manual, now);
-        store::persist_manual(store.as_manual(), &client, Some(&stored)).map_err(|e| e.to_string())?;
+        store::persist_manual(store.as_manual(), &client, Some(&stored))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -550,7 +548,8 @@ fn clear_manual_throttle(
             m.throttle = None;
             if !m.blocked {
                 entry.manual = None;
-                store::persist_manual(store.as_manual(), &client, None).map_err(|e| e.to_string())?;
+                store::persist_manual(store.as_manual(), &client, None)
+                    .map_err(|e| e.to_string())?;
             } else {
                 let stored = StoredManualPolicy::from_runtime(m, now);
                 store::persist_manual(store.as_manual(), &client, Some(&stored))
@@ -574,7 +573,8 @@ fn clear_manual_block(
             m.blocked = false;
             if m.throttle.is_none() {
                 entry.manual = None;
-                store::persist_manual(store.as_manual(), &client, None).map_err(|e| e.to_string())?;
+                store::persist_manual(store.as_manual(), &client, None)
+                    .map_err(|e| e.to_string())?;
             } else {
                 let stored = StoredManualPolicy::from_runtime(m, now);
                 store::persist_manual(store.as_manual(), &client, Some(&stored))
@@ -610,10 +610,7 @@ mod tests {
         let sock = dir.path().join("microwaf.sock");
         let _listener = UnixListener::bind(&sock).unwrap();
         let err = claim_socket_path(&sock).unwrap_err();
-        assert!(
-            err.to_string().contains("already running"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("already running"), "got: {err}");
     }
 
     #[test]
@@ -622,9 +619,6 @@ mod tests {
         let sock = dir.path().join("microwaf.sock");
         let _first = bind_listener(&sock).expect("first bind");
         let err = bind_listener(&sock).unwrap_err();
-        assert!(
-            err.to_string().contains("already running"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("already running"), "got: {err}");
     }
 }

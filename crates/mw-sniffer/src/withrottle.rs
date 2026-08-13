@@ -59,10 +59,7 @@ fn parse_prefix(line: &str) -> (String, String) {
         && bytes[2].is_ascii_alphabetic()
     {
         3
-    } else if bytes.len() >= 2
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1].is_ascii_alphabetic()
-    {
+    } else if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1].is_ascii_alphabetic() {
         2
     } else {
         1

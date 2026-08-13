@@ -4,8 +4,8 @@ use anyhow::{bail, Result};
 use mw_client::Client;
 use mw_proto::{BlockParams, ClientRef, ThrottleParams, TopParams};
 
-use crate::cli::{Cli, Command};
 use crate::cli::top;
+use crate::cli::{Cli, Command};
 
 /// Run a client subcommand.
 pub fn run(cli: &Cli) -> Result<()> {
@@ -147,9 +147,9 @@ pub fn run(cli: &Cli) -> Result<()> {
 }
 
 fn parse_client(s: &str) -> Result<ClientRef> {
-    let id: mw_core::ClientId = s.parse().map_err(|e: mw_core::client::ClientRefParseError| {
-        anyhow::anyhow!(e.to_string())
-    })?;
+    let id: mw_core::ClientId = s
+        .parse()
+        .map_err(|e: mw_core::client::ClientRefParseError| anyhow::anyhow!(e.to_string()))?;
     Ok(ClientRef {
         mac: id.mac_string(),
         ip: Some(id.ip.to_string()),

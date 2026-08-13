@@ -44,7 +44,10 @@ pub fn detect_http_request(payload: &[u8]) -> Option<HttpRequestLine> {
 
     let (path, query) = match target.split_once('?') {
         Some((p, q)) => (p.to_string(), q.split('#').next().unwrap_or(q).to_string()),
-        None => (target.split('#').next().unwrap_or(target).to_string(), String::new()),
+        None => (
+            target.split('#').next().unwrap_or(target).to_string(),
+            String::new(),
+        ),
     };
 
     let mut headers = Vec::new();

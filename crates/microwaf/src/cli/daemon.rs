@@ -54,7 +54,10 @@ pub fn run(cli: &Cli) -> Result<()> {
 
     if crate::iface::is_any(&interface) {
         match crate::iface::list_attachable() {
-            Ok(ifaces) => info!(?ifaces, "interface=any — sniffing on all network interfaces"),
+            Ok(ifaces) => info!(
+                ?ifaces,
+                "interface=any — sniffing on all network interfaces"
+            ),
             Err(e) => {
                 tracing::warn!(error = %e, "interface=any — could not enumerate NICs");
                 info!("interface=any — sniffing on all network interfaces");
@@ -89,18 +92,16 @@ pub fn run(cli: &Cli) -> Result<()> {
     };
 
     let enforcer: Arc<dyn Enforcer> = match mode {
-        Mode::Enforce => {
-            match ebpf::load_and_attach(&interface) {
-                Ok(bpf) => Arc::new(BpfEnforcer::new(bpf)),
-                Err(e) => {
-                    tracing::warn!(
-                        error = %e,
-                        "eBPF load failed — falling back to permissive enforcer (no packet drops)"
-                    );
-                    Arc::new(PermissiveEnforcer::default())
-                }
+        Mode::Enforce => match ebpf::load_and_attach(&interface) {
+            Ok(bpf) => Arc::new(BpfEnforcer::new(bpf)),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "eBPF load failed — falling back to permissive enforcer (no packet drops)"
+                );
+                Arc::new(PermissiveEnforcer::default())
             }
-        }
+        },
         Mode::Permissive => Arc::new(PermissiveEnforcer::default()),
     };
     state.set_enforcer(enforcer);

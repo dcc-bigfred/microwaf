@@ -227,7 +227,8 @@ fn dispatch_tcp(
                 dport,
                 proto: IPPROTO_TCP,
             };
-            if flows.observe(key, now) && match_ok(rule.as_ref(), &common_ctx(&client, dport, &sets))
+            if flows.observe(key, now)
+                && match_ok(rule.as_ref(), &common_ctx(&client, dport, &sets))
             {
                 state.counters.add_connections(client, &rule.id, 1);
             }
@@ -332,7 +333,8 @@ fn dispatch_udp(
                 dport,
                 proto: IPPROTO_UDP,
             };
-            if flows.observe(key, now) && match_ok(rule.as_ref(), &common_ctx(&client, dport, &sets))
+            if flows.observe(key, now)
+                && match_ok(rule.as_ref(), &common_ctx(&client, dport, &sets))
             {
                 state.counters.add_connections(client, &rule.id, 1);
             }
@@ -376,10 +378,7 @@ fn common_ctx(client: &ClientId, port: u16, sets: &mw_core::config::SetsConfig) 
     let now = chrono::Utc::now();
     ctx.set_int("time.epoch", now.timestamp());
     ctx.set_int("time.hour", i64::from(now.hour()));
-    ctx.set_int(
-        "time.dow",
-        i64::from(now.weekday().num_days_from_sunday()),
-    );
+    ctx.set_int("time.dow", i64::from(now.weekday().num_days_from_sunday()));
     ctx.sets = sets.sets.clone().into_iter().collect();
     ctx
 }

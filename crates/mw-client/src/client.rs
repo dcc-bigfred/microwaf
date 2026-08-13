@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use mw_proto::{
-    read_frame, write_frame, BlockParams, ClientParams, InfoResult, Params, Request, RequestKind,
-    Response, ResultBody, RulesResult, ThrottleParams, TopParams, TopResult, ClientsResult,
-    ClientRef,
+    read_frame, write_frame, BlockParams, ClientParams, ClientRef, ClientsResult, InfoResult,
+    Params, Request, RequestKind, Response, ResultBody, RulesResult, ThrottleParams, TopParams,
+    TopResult,
 };
 
 use crate::error::ClientError;
@@ -88,10 +88,7 @@ impl Client {
 
     /// `top`.
     pub fn top(&self, params: TopParams) -> Result<TopResult, ClientError> {
-        match self.round_trip(Request::with_params(
-            RequestKind::Top,
-            Params::Top(params),
-        ))? {
+        match self.round_trip(Request::with_params(RequestKind::Top, Params::Top(params)))? {
             ResultBody::Clients(r) => Ok(r),
             other => Err(ClientError::Unexpected(format!("{other:?}"))),
         }
