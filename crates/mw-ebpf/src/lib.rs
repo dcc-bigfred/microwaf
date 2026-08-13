@@ -3,7 +3,7 @@
 //! Build via `make ebpf` (or from this crate directory with nightly):
 //! `cargo +nightly build --release`
 //!
-//! Requires: `rustup component add rust-src --toolchain nightly` and `cargo install bpf-linker`.
+//! Requires: `make ebpf-setup` (nightly rust-src + official bpf-linker binary).
 
 #![no_std]
 #![no_main]

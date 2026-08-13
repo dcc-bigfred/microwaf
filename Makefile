@@ -15,10 +15,11 @@ build: ebpf
 	$(CARGO) build --workspace
 
 # One-time deps for the BPF object: nightly + rust-src + bpf-linker.
+# bpf-linker is the official musl binary (cargo install needs system LLVM).
 ebpf-setup:
 	rustup toolchain install $(NIGHTLY) --profile minimal
 	rustup component add rust-src --toolchain $(NIGHTLY)
-	$(CARGO) install bpf-linker --locked
+	./scripts/install-bpf-linker.sh
 
 # Build the XDP object into workspace `target/bpfel-unknown-none/release/libmw_ebpf.so`.
 # Must run inside crates/mw-ebpf so its `.cargo/config.toml` applies (panic=abort, build-std).
