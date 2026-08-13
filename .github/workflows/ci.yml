@@ -1,0 +1,168 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Host binary embeds the XDP object (build.rs → include_bytes!).
+# Build musl artifacts ourselves so we can install nightly + rust-src + bpf-linker
+# before `cargo build` (the shared rust-musl-ci workflow has no pre_build hook).
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Rust nightly (eBPF)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install bpf-linker
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          cargo install bpf-linker --locked
+
+      - name: Build eBPF object
+        run: make ebpf
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Test (release-assertions)
+        run: cargo test --locked --profile release-assertions
+
+  build:
+    name: Build musl (${{ matrix.name }})
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-musl
+            arch_suffix: arm64
+            linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER
+            cc_env: CC_aarch64_unknown_linux_musl
+            ar_env: AR_aarch64_unknown_linux_musl
+          - name: amd64
+            runner: ubuntu-latest
+            rust_target: x86_64-unknown-linux-musl
+            arch_suffix: amd64
+            linker_env: CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER
+            cc_env: CC_x86_64_unknown_linux_musl
+            ar_env: AR_x86_64_unknown_linux_musl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install Rust nightly (eBPF)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.name }}-musl-ebpf
+
+      - name: Install musl toolchain (apt)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y musl-tools musl-dev
+          musl-gcc --version
+
+      - name: Install bpf-linker
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          cargo install bpf-linker --locked
+
+      - name: Build eBPF object
+        run: make ebpf
+
+      - name: Build static binary (BPF embedded)
+        env:
+          MICROWAF_GIT_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          export ${{ matrix.linker_env }}=musl-gcc
+          export ${{ matrix.cc_env }}=musl-gcc
+          export ${{ matrix.ar_env }}=ar
+          export RUSTFLAGS='-C target-feature=+crt-static'
+
+          cargo build -p microwaf --release --target ${{ matrix.rust_target }} --locked
+
+          mkdir -p dist
+          src="target/${{ matrix.rust_target }}/release/microwaf"
+          dst="dist/microwaf-linux-${{ matrix.arch_suffix }}"
+          cp -f "${src}" "${dst}"
+          chmod 755 "${dst}"
+          file "${dst}"
+          if ldd "${dst}" 2>&1 | grep -qi 'not a dynamic\|statically linked'; then
+            echo "static binary OK: ${dst}"
+          else
+            echo "warning: ldd output:" >&2
+            ldd "${dst}" >&2 || true
+          fi
+          ls -lh "${dst}"
+
+          (
+            cd dist
+            sha256sum -- * > "../SHA256SUMS.${{ matrix.name }}"
+            mv -f "../SHA256SUMS.${{ matrix.name }}" "SHA256SUMS.${{ matrix.name }}"
+          )
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: go vet ./...
+      - run: go test ./...

@@ -1,0 +1,36 @@
+- id: http-rps-100
+  protocol: http
+  ports: [80, 443]
+  metric: requests
+  window: per-second
+  limit: 100
+  action: { kind: throttle, dropRate: 50 }
+  minThreshold: 50
+
+- id: z21-rps
+  protocol: z21
+  ports: [21105, 21106]
+  metric: requests
+  window: per-second
+  limit: 500
+  action: { kind: throttle, dropRate: 50 }
+  minThreshold: 200
+
+- id: wt-speed-spam
+  protocol: withrottle
+  ports: [12090]
+  metric: requests
+  window: per-second
+  limit: 30
+  action: { kind: block }
+  minThreshold: 10
+  match: 'withrottle.prefix == "M0A"'
+
+- id: tcp-conn-per-sec
+  protocol: tcp
+  ports: [5000]
+  metric: connections
+  window: per-second
+  limit: 20
+  action: { kind: throttle, dropRate: 60 }
+  minThreshold: 10

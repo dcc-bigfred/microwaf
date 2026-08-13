@@ -1,0 +1,22 @@
+[package]
+name = "mw-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Redis-backed persistence for MicroWAF (write-only at runtime)"
+
+[lints]
+workspace = true
+
+[dependencies]
+mw-core = { path = "../mw-core" }
+redis = { version = "0.27", default-features = false, features = ["script"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+parking_lot = "0.12"
+
+[dev-dependencies]

@@ -1,0 +1,14 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    uses: dcc-bigfred/common/.github/workflows/rust-release.yml@v2
+    with:
+      elf_binaries: microwaf-linux-arm64,microwaf-linux-amd64
+      elf_section: .microwaf.version
+      ci_workflow: ci.yml
+    secrets: inherit

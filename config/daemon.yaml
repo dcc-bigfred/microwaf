@@ -1,0 +1,9 @@
+mode: enforce
+# NIC name, or `any` to sniff on all interfaces (default)
+interface: any
+cooldownSecs: 30
+statsSnapshotSecs: 5
+allowUsers:
+  - root
+  - bigfred
+  - bigfred-wizard

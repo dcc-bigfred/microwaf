@@ -1,0 +1,15 @@
+# eBPF-only crate settings (do not apply to the workspace host crates).
+[build]
+target = "bpfel-unknown-none"
+rustflags = ["-C", "panic=abort"]
+
+[unstable]
+build-std = ["core"]
+
+[profile.dev]
+panic = "abort"
+lto = true
+
+[profile.release]
+panic = "abort"
+lto = true

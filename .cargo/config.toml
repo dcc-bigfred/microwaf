@@ -1,0 +1,2 @@
+[build]
+# Host builds use the default target; eBPF is built explicitly via Makefile.

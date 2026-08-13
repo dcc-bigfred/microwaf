@@ -1,0 +1,5 @@
+# Host crates use stable. eBPF builds use `cargo +nightly` via Makefile
+# with `-Z build-std=core` (no rust-std-bpfel-unknown-none package required).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

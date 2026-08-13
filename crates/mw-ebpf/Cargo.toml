@@ -1,0 +1,17 @@
+[package]
+name = "mw-ebpf"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["BigFred"]
+repository = "https://github.com/dcc-bigfred/microwaf"
+description = "MicroWAF XDP enforcement program (aya)"
+publish = false
+
+[dependencies]
+aya-ebpf = "0.1.1"
+
+[lib]
+path = "src/lib.rs"
+# cdylib + bpf-linker emits a loadable BPF ELF (not an rlib).
+crate-type = ["cdylib"]
