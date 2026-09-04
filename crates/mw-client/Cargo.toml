@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 mw-proto = { path = "../mw-proto" }
-dcc-daemon = { git = "https://github.com/dcc-bigfred/rust-commons.git", rev = "bdc4155f124f82ce59c9a8801b4952be8e06f4a2", default-features = false }
+dcc-daemon = { git = "https://github.com/dcc-bigfred/rust-commons.git", branch = "main", default-features = false }
 thiserror = "2"
 serde_json = "1"
 
