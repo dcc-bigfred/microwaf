@@ -26,10 +26,11 @@ pub fn resolve_socket(override_path: Option<&Path>) -> PathBuf {
     if let Ok(p) = std::env::var("MICROWAF_SOCKET") {
         return PathBuf::from(p);
     }
-    let data = std::env::var("BIGFRED_DATA_DIR")
-        .or_else(|_| std::env::var("DATA_DIR"))
-        .unwrap_or_else(|_| "/data".into());
-    PathBuf::from(data).join("run/microwaf/microwaf.sock")
+    let data = dcc_daemon::datadir::DataDir::resolve(
+        dcc_daemon::EnvPolicy::BigfredThenDataDir,
+        dcc_daemon::PathRule::AcceptAny,
+    );
+    data.run_nested_socket("microwaf")
 }
 
 /// Sync MicroWAF client.

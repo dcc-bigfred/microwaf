@@ -138,7 +138,7 @@ pub fn run(cli: &Cli) -> Result<()> {
     let state_ipc = Arc::clone(&state);
     let store_ipc = store_backend;
     let allow = state.allow_users();
-    ipc::serve_listener(listener, state_ipc, store_ipc, allow)?;
+    ipc::serve_listener(listener, &socket, state_ipc, store_ipc, allow)?;
 
     Ok(())
 }

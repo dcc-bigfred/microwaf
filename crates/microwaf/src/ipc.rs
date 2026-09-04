@@ -1,15 +1,17 @@
 //! Unix socket IPC server with SO_PEERCRED auth.
 
-use std::fs;
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::io::AsRawFd;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixListener;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
-use tracing::{debug, info, warn};
+use anyhow::Result;
+use dcc_daemon::ipc::{
+    AcceptPolicy, Auth, BindOptions, Command, Connection, ErrorHandler, IpcError, RejectReason,
+    Router, Server, SessionMode,
+};
+use serde_json::Value;
+use tracing::info;
 
 use mw_core::client::ClientId;
 use mw_core::enforcer::Mode;
@@ -17,9 +19,9 @@ use mw_core::policy::{merge_policy, ManualPolicy, StoredManualPolicy};
 use mw_core::rule::{Action, Rule};
 use mw_core::window::RuleWindows;
 use mw_proto::{
-    read_frame, write_frame, ActionWire, BlockParams, ClientEntry, ClientParams, ClientRef,
-    ClientsResult, EmptyResult, ErrorBody, InfoResult, Params, Request, RequestKind, Response,
-    ResultBody, RuleWire, RulesResult, ThrottleParams, TopParams, TopResult, ViolationWire,
+    ActionWire, BlockParams, ClientEntry, ClientParams, ClientRef, ClientsResult, EmptyResult,
+    ErrorBody, InfoResult, Params, Request, RequestKind, Response, ResultBody, RuleWire,
+    RulesResult, ThrottleParams, TopParams, TopResult, ViolationWire, MAX_FRAME_BYTES,
 };
 
 use crate::cli::daemon::StoreBackend;
@@ -28,143 +30,131 @@ use crate::store;
 use crate::version;
 
 /// Bind the Unix socket, refusing to start if another daemon is already live.
-///
-/// - Missing path → bind.
-/// - Path exists and `connect` succeeds → another daemon is running → error.
-/// - Path exists and `connect` fails → treat as stale file, remove, bind.
 pub fn bind_listener(socket: &Path) -> Result<UnixListener> {
-    if let Some(parent) = socket.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("mkdir {}", parent.display()))?;
-    }
-    claim_socket_path(socket)?;
-    let listener =
-        UnixListener::bind(socket).with_context(|| format!("bind {}", socket.display()))?;
-    let mut perms = fs::metadata(socket)
-        .with_context(|| format!("stat {}", socket.display()))?
-        .permissions();
-    perms.set_mode(0o660);
-    fs::set_permissions(socket, perms).with_context(|| format!("chmod {}", socket.display()))?;
+    let listener = dcc_daemon::ipc::bind(&BindOptions {
+        path: socket.to_path_buf(),
+        mode: 0o660,
+        chown: None,
+        process_name: "microwaf",
+    })
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     info!(path = %socket.display(), "IPC listening");
     Ok(listener)
+}
+
+fn claim_socket_path(socket: &Path) -> Result<()> {
+    dcc_daemon::ipc::claim(socket, "microwaf").map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+struct IpcCtx {
+    state: Arc<DaemonState>,
+    store: StoreBackend,
+}
+
+macro_rules! mw_cmd {
+    ($ty:ident, $name:literal) => {
+        struct $ty;
+        impl Command<IpcCtx> for $ty {
+            fn name(&self) -> &'static str {
+                $name
+            }
+            fn execute(
+                &self,
+                ctx: &IpcCtx,
+                body: Value,
+                conn: &mut Connection,
+            ) -> std::result::Result<(), IpcError> {
+                let req: Request =
+                    serde_json::from_value(body).map_err(|e| IpcError::Other(e.to_string()))?;
+                let resp = dispatch(&req, &ctx.state, &ctx.store);
+                conn.reply(&resp).map_err(IpcError::from)
+            }
+        }
+    };
+}
+
+mw_cmd!(InfoCmd, "info");
+mw_cmd!(TopCmd, "top");
+mw_cmd!(ListClientsCmd, "listClients");
+mw_cmd!(ThrottleCmd, "throttle");
+mw_cmd!(UnthrottleCmd, "unthrottle");
+mw_cmd!(BlockCmd, "block");
+mw_cmd!(UnblockCmd, "unblock");
+mw_cmd!(ListRulesCmd, "listRules");
+
+struct MwHooks;
+
+impl ErrorHandler<IpcCtx> for MwHooks {
+    fn unknown(&self, _state: &IpcCtx, _type_name: &str, _body: &Value, conn: &mut Connection) {
+        let _ = conn.reply(&Response::err(
+            RequestKind::Info,
+            ErrorBody::invalid("unknown type"),
+        ));
+    }
+    fn error(&self, _state: &IpcCtx, err: &IpcError, conn: &mut Connection) {
+        let _ = conn.reply(&Response::err(
+            RequestKind::Info,
+            ErrorBody::invalid(err.to_string()),
+        ));
+    }
+    fn reject(&self, _state: &IpcCtx, reason: RejectReason, conn: &mut Connection) {
+        if reason == RejectReason::Auth {
+            let _ = conn.reply(&Response::err(
+                RequestKind::Info,
+                ErrorBody::forbidden("peer user not in allowlist"),
+            ));
+        }
+    }
+}
+
+fn mw_router() -> std::result::Result<Router<IpcCtx>, anyhow::Error> {
+    let mut router = Router::new();
+    router.add(InfoCmd).map_err(|e| anyhow::anyhow!("{e}"))?;
+    router.add(TopCmd).map_err(|e| anyhow::anyhow!("{e}"))?;
+    router
+        .add(ListClientsCmd)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    router
+        .add(ThrottleCmd)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    router
+        .add(UnthrottleCmd)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    router.add(BlockCmd).map_err(|e| anyhow::anyhow!("{e}"))?;
+    router.add(UnblockCmd).map_err(|e| anyhow::anyhow!("{e}"))?;
+    router
+        .add(ListRulesCmd)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    Ok(router)
 }
 
 /// Serve on an already-bound listener.
 pub fn serve_listener(
     listener: UnixListener,
+    socket: &Path,
     state: Arc<DaemonState>,
     store: StoreBackend,
     allow_users: Vec<String>,
 ) -> Result<()> {
-    for conn in listener.incoming() {
-        match conn {
-            Ok(stream) => {
-                let state = Arc::clone(&state);
-                let store = store.clone();
-                let allow = allow_users.clone();
-                std::thread::spawn(move || {
-                    if let Err(e) = handle_conn(stream, state, store, &allow) {
-                        debug!(error = %e, "ipc conn");
-                    }
-                });
-            }
-            Err(e) => warn!(error = %e, "accept"),
-        }
-    }
+    let ctx = Arc::new(IpcCtx { state, store });
+    let server = Server::from_listener(
+        listener,
+        socket.to_path_buf(),
+        AcceptPolicy {
+            auth: Auth::PeerUser {
+                allow_users,
+                root_always: true,
+                fail_closed_if_empty: false,
+            },
+            session: SessionMode::Persistent,
+            max_clients: None,
+            max_frame: MAX_FRAME_BYTES,
+        },
+        mw_router()?,
+        MwHooks,
+    );
+    server.serve(ctx);
     Ok(())
-}
-
-fn claim_socket_path(socket: &Path) -> Result<()> {
-    if !socket.exists() {
-        return Ok(());
-    }
-    match UnixStream::connect(socket) {
-        Ok(_alive) => {
-            anyhow::bail!(
-                "another microwaf daemon is already running (socket {} is live)",
-                socket.display()
-            );
-        }
-        Err(e) => {
-            warn!(
-                error = %e,
-                path = %socket.display(),
-                "removing stale Unix socket"
-            );
-            fs::remove_file(socket)
-                .with_context(|| format!("remove stale socket {}", socket.display()))?;
-            Ok(())
-        }
-    }
-}
-
-fn handle_conn(
-    mut stream: UnixStream,
-    state: Arc<DaemonState>,
-    store: StoreBackend,
-    allow: &[String],
-) -> Result<()> {
-    if !peer_allowed(&stream, allow) {
-        let resp = Response::err(
-            RequestKind::Info,
-            ErrorBody::forbidden("peer user not in allowlist"),
-        );
-        let _ = write_frame(&mut stream, &resp);
-        return Ok(());
-    }
-    loop {
-        let req: Request = match read_frame(&mut stream) {
-            Ok(r) => r,
-            Err(mw_proto::FrameError::UnexpectedEof { .. }) => break,
-            Err(mw_proto::FrameError::Io(e))
-                if e.kind() == std::io::ErrorKind::UnexpectedEof
-                    || e.kind() == std::io::ErrorKind::ConnectionReset =>
-            {
-                break;
-            }
-            Err(e) => return Err(e.into()),
-        };
-        let resp = dispatch(&req, &state, &store);
-        write_frame(&mut stream, &resp)?;
-    }
-    Ok(())
-}
-
-fn peer_allowed(stream: &UnixStream, allow: &[String]) -> bool {
-    if allow.is_empty() {
-        return true;
-    }
-    // SAFETY: SO_PEERCRED getsockopt
-    unsafe {
-        let mut cred: libc::ucred = std::mem::zeroed();
-        let mut len = std::mem::size_of_val(&cred) as libc::socklen_t;
-        let rc = libc::getsockopt(
-            stream.as_raw_fd(),
-            libc::SOL_SOCKET,
-            libc::SO_PEERCRED,
-            &mut cred as *mut _ as *mut libc::c_void,
-            &mut len,
-        );
-        if rc != 0 {
-            return false;
-        }
-        // UID 0 (root) is always allowed — operators run the CLI as root on the Pi.
-        if cred.uid == 0 {
-            return true;
-        }
-        let uid = cred.uid;
-        if let Some(name) = uid_to_name(uid) {
-            return allow.iter().any(|u| u == &name);
-        }
-        false
-    }
-}
-
-fn uid_to_name(uid: u32) -> Option<String> {
-    use nix::unistd::{Uid, User};
-    User::from_uid(Uid::from_raw(uid))
-        .ok()
-        .flatten()
-        .map(|u| u.name)
 }
 
 fn dispatch(req: &Request, state: &DaemonState, store: &StoreBackend) -> Response {
