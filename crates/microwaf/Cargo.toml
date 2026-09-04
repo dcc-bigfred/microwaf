@@ -27,7 +27,7 @@ mw-core = { path = "../mw-core" }
 mw-sniffer = { path = "../mw-sniffer" }
 mw-store = { path = "../mw-store" }
 mw-client = { path = "../mw-client" }
-dcc-daemon = { git = "https://github.com/dcc-bigfred/rust-commons.git", branch = "main" }
+bigfred-shared-daemon = { git = "https://github.com/dcc-bigfred/rust-commons.git", branch = "main" }
 clap = { version = "4", features = ["derive", "env"] }
 humantime = "2"
 tracing = "0.1"

@@ -277,7 +277,7 @@ pub fn resolve_socket_path(override_path: Option<&Path>) -> PathBuf {
 fn setup_sighup() {
     let flag = Arc::new(AtomicBool::new(false));
     // Keep a process-wide flag AND a signal-hook flag: drain signal-hook into SIGHUP_FLAG.
-    if let Err(e) = dcc_daemon::config::install_sighup_flag(Arc::clone(&flag)) {
+    if let Err(e) = bigfred_shared_daemon::config::install_sighup_flag(Arc::clone(&flag)) {
         error!(error = %e, "SIGHUP handler");
         return;
     }
@@ -308,16 +308,16 @@ fn try_reload(dir: &Path, state: &DaemonState) {
 /// Watch config dir and reload on change / SIGHUP.
 pub fn watch_loop(dir: PathBuf, state: Arc<DaemonState>) {
     setup_sighup();
-    let specs = vec![dcc_daemon::config::WatchSpec {
+    let specs = vec![bigfred_shared_daemon::config::WatchSpec {
         path: dir.clone(),
         recursive: true,
-        filter: dcc_daemon::config::PathFilter::Any {
+        filter: bigfred_shared_daemon::config::PathFilter::Any {
             extensions: Vec::new(),
             extra_names: Vec::new(),
             ignore_suffixes: vec![".example".into()],
         },
     }];
-    let (rx, _stop) = match dcc_daemon::config::spawn_signal(specs, Duration::from_millis(200)) {
+    let (rx, _stop) = match bigfred_shared_daemon::config::spawn_signal(specs, Duration::from_millis(200)) {
         Ok(pair) => pair,
         Err(e) => {
             error!(error = %e, "config watcher init failed");

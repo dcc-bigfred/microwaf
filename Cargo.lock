@@ -158,6 +158,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4372b9543397a4b86050cc5e7ee36953edf4bac9518e8a774c2da694977fb6e4"
 
 [[package]]
+name = "bigfred-shared-daemon"
+version = "0.1.0"
+source = "git+https://github.com/dcc-bigfred/rust-commons.git?branch=main#5f5053ef9316139c7cde500e6e9e85a70dbbbd09"
+dependencies = [
+ "log",
+ "nix 0.29.0",
+ "notify",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -353,20 +367,6 @@ dependencies = [
  "dispatch2",
  "nix 0.31.3",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "dcc-daemon"
-version = "0.1.0"
-source = "git+https://github.com/dcc-bigfred/rust-commons.git?branch=main#f740cf1b95037ab662697a713cbde8c2c05c3d9e"
-dependencies = [
- "log",
- "nix 0.29.0",
- "notify",
- "serde",
- "serde_json",
- "signal-hook",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -793,10 +793,10 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "aya",
+ "bigfred-shared-daemon",
  "chrono",
  "clap",
  "ctrlc",
- "dcc-daemon",
  "humantime",
  "libc",
  "mw-client",
@@ -846,7 +846,7 @@ dependencies = [
 name = "mw-client"
 version = "0.1.0"
 dependencies = [
- "dcc-daemon",
+ "bigfred-shared-daemon",
  "mw-proto",
  "serde_json",
  "tempfile",
@@ -869,7 +869,7 @@ dependencies = [
 name = "mw-proto"
 version = "0.1.0"
 dependencies = [
- "dcc-daemon",
+ "bigfred-shared-daemon",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use dcc_daemon::ipc::{
+use bigfred_shared_daemon::ipc::{
     AcceptPolicy, Auth, BindOptions, Command, Connection, ErrorHandler, IpcError, RejectReason,
     Router, Server, SessionMode,
 };
@@ -31,7 +31,7 @@ use crate::version;
 
 /// Bind the Unix socket, refusing to start if another daemon is already live.
 pub fn bind_listener(socket: &Path) -> Result<UnixListener> {
-    let listener = dcc_daemon::ipc::bind(&BindOptions {
+    let listener = bigfred_shared_daemon::ipc::bind(&BindOptions {
         path: socket.to_path_buf(),
         mode: 0o660,
         chown: None,
@@ -43,7 +43,7 @@ pub fn bind_listener(socket: &Path) -> Result<UnixListener> {
 }
 
 fn claim_socket_path(socket: &Path) -> Result<()> {
-    dcc_daemon::ipc::claim(socket, "microwaf").map_err(|e| anyhow::anyhow!("{e}"))
+    bigfred_shared_daemon::ipc::claim(socket, "microwaf").map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 struct IpcCtx {

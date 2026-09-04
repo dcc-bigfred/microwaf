@@ -26,9 +26,9 @@ pub fn resolve_socket(override_path: Option<&Path>) -> PathBuf {
     if let Ok(p) = std::env::var("MICROWAF_SOCKET") {
         return PathBuf::from(p);
     }
-    let data = dcc_daemon::datadir::DataDir::resolve(
-        dcc_daemon::EnvPolicy::BigfredThenDataDir,
-        dcc_daemon::PathRule::AcceptAny,
+    let data = bigfred_shared_daemon::datadir::DataDir::resolve(
+        bigfred_shared_daemon::EnvPolicy::BigfredThenDataDir,
+        bigfred_shared_daemon::PathRule::AcceptAny,
     );
     data.run_nested_socket("microwaf")
 }
