@@ -1,4 +1,4 @@
-.PHONY: all build release release-musl check test test-release-assertions fmt clippy clean ebpf ebpf-setup
+.PHONY: all build release release-musl check test test-release-assertions fmt clippy clean ebpf ebpf-setup deps-update
 
 CARGO ?= cargo
 TARGET_MUSL ?= aarch64-unknown-linux-musl
@@ -63,6 +63,10 @@ fmt:
 
 clippy:
 	$(CARGO) clippy --workspace --all-targets -- -D warnings
+
+# Refresh git crates (bigfred-shared-daemon) and rewrite Cargo.lock. Commit the lockfile afterwards.
+deps-update:
+	$(CARGO) update -p bigfred-shared-daemon
 
 clean:
 	$(CARGO) clean

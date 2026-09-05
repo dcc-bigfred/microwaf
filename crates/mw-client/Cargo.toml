@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 mw-proto = { path = "../mw-proto" }
+bigfred-shared-daemon = { git = "https://github.com/dcc-bigfred/rust-commons.git", branch = "main", default-features = false }
 thiserror = "2"
 serde_json = "1"
 

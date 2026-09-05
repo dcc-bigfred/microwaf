@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tracing::{error, info, warn};
 
 use mw_core::config::{compile_ruleset, parse_rules_yaml, DaemonConfig, SetsConfig};
@@ -276,14 +275,21 @@ pub fn resolve_socket_path(override_path: Option<&Path>) -> PathBuf {
 }
 
 fn setup_sighup() {
-    use nix::sys::signal::{self, SigHandler, Signal};
-    extern "C" fn handler(_: nix::libc::c_int) {
-        SIGHUP_FLAG.store(true, Ordering::SeqCst);
+    let flag = Arc::new(AtomicBool::new(false));
+    // Keep a process-wide flag AND a signal-hook flag: drain signal-hook into SIGHUP_FLAG.
+    if let Err(e) = bigfred_shared_daemon::config::install_sighup_flag(Arc::clone(&flag)) {
+        error!(error = %e, "SIGHUP handler");
+        return;
     }
-    // SAFETY: installing a simple atomic-store signal handler.
-    unsafe {
-        let _ = signal::signal(Signal::SIGHUP, SigHandler::Handler(handler));
-    }
+    std::thread::Builder::new()
+        .name("sighup-bridge".into())
+        .spawn(move || loop {
+            if flag.swap(false, Ordering::SeqCst) {
+                SIGHUP_FLAG.store(true, Ordering::SeqCst);
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        })
+        .ok();
 }
 
 fn try_reload(dir: &Path, state: &DaemonState) {
@@ -302,39 +308,27 @@ fn try_reload(dir: &Path, state: &DaemonState) {
 /// Watch config dir and reload on change / SIGHUP.
 pub fn watch_loop(dir: PathBuf, state: Arc<DaemonState>) {
     setup_sighup();
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher = match RecommendedWatcher::new(
-        move |res| {
-            let _ = tx.send(res);
+    let specs = vec![bigfred_shared_daemon::config::WatchSpec {
+        path: dir.clone(),
+        recursive: true,
+        filter: bigfred_shared_daemon::config::PathFilter::Any {
+            extensions: Vec::new(),
+            extra_names: Vec::new(),
+            ignore_suffixes: vec![".example".into()],
         },
-        notify::Config::default(),
-    ) {
-        Ok(w) => w,
+    }];
+    let (rx, _stop) = match bigfred_shared_daemon::config::spawn_signal(specs, Duration::from_millis(200)) {
+        Ok(pair) => pair,
         Err(e) => {
             error!(error = %e, "config watcher init failed");
             return;
         }
     };
-    if let Err(e) = watcher.watch(&dir, RecursiveMode::Recursive) {
-        error!(error = %e, "watch {}", dir.display());
-        return;
-    }
 
     loop {
         let mut got = false;
         match rx.recv_timeout(Duration::from_millis(500)) {
-            Ok(Ok(event)) => {
-                if !is_example_only_event(&event) {
-                    got = true;
-                }
-                std::thread::sleep(Duration::from_millis(200));
-                while let Ok(Ok(ev)) = rx.try_recv() {
-                    if !is_example_only_event(&ev) {
-                        got = true;
-                    }
-                }
-            }
-            Ok(Err(e)) => warn!(error = %e, "watch error"),
+            Ok(_) => got = true,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }
@@ -345,15 +339,6 @@ pub fn watch_loop(dir: PathBuf, state: Arc<DaemonState>) {
             try_reload(&dir, &state);
         }
     }
-}
-
-fn is_example_only_event(event: &notify::Event) -> bool {
-    !event.paths.is_empty()
-        && event.paths.iter().all(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.ends_with(".example"))
-        })
 }
 
 #[cfg(test)]
